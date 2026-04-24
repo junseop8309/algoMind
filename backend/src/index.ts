@@ -13,8 +13,8 @@ const PORT = process.env.PORT || 3001
 // ✅ Middleware FIRST — before any routes
 app.use(helmet())
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true,
+  origin: ['https://algo-mind-gamma.vercel.app'],
+  credentials: true
 }))
 app.use(express.json())
 
