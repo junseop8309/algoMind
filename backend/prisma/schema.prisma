@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Profile {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  username           String?  @unique
+  avatarUrl          String?
+  onboardingComplete Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  masteryRecords      MasteryRecord[]
+  attempts            Attempt[]
+  reviewQueue         ReviewQueue[]
+  diagnosticResponses DiagnosticResponse[]
+  agentLogs           AgentLog[]
+  roadmaps            Roadmap[]
+
+  @@map("profiles")
+}
+
+model Concept {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  title         String
+  description   String?
+  category      String
+  difficulty    Int      @default(1)
+  prerequisites String[]
+  createdAt     DateTime @default(now())
+
+  problems       Problem[]
+  masteryRecords MasteryRecord[]
+  reviewQueue    ReviewQueue[]
+
+  @@map("concepts")
+}
+
+model Problem {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  description String
+  difficulty  String
+  conceptId   String
+  starterCode Json
+  testCases   Json
+  hints       Json
+  tags        String[]
+  createdAt   DateTime @default(now())
+
+  concept  Concept   @relation(fields: [conceptId], references: [id])
+  attempts Attempt[]
+
+  @@map("problems")
+}
+
+model Roadmap {
+  id        String   @id @default(uuid())
+  userId    String
+  nodes     Json
+  edges     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [userId], references: [id])
+
+  @@map("roadmaps")
+}
+
+model MasteryRecord {
+  id           String    @id @default(uuid())
+  userId       String
+  conceptId    String
+  masteryState String    @default("locked")
+  easeFactor   Float     @default(2.5)
+  interval     Int       @default(0)
+  repetitions  Int       @default(0)
+  nextReview   DateTime?
+  lastReview   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile Profile @relation(fields: [userId], references: [id])
+  concept Concept @relation(fields: [conceptId], references: [id])
+
+  @@unique([userId, conceptId])
+  @@map("mastery_records")
+}
+
+model Attempt {
+  id        String   @id @default(uuid())
+  userId    String
+  problemId String
+  code      String
+  language  String
+  passed    Boolean
+  timeTaken Int
+  hintLevel Int      @default(0)
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [userId], references: [id])
+  problem Problem @relation(fields: [problemId], references: [id])
+
+  @@map("attempts")
+}
+
+model ReviewQueue {
+  id          String   @id @default(uuid())
+  userId      String
+  conceptId   String
+  scheduledAt DateTime
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  profile Profile @relation(fields: [userId], references: [id])
+  concept Concept @relation(fields: [conceptId], references: [id])
+
+  @@map("review_queue")
+}
+
+model DiagnosticResponse {
+  id        String   @id @default(uuid())
+  userId    String
+  conceptId String
+  response  Json
+  score     Float
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [userId], references: [id])
+
+  @@map("diagnostic_responses")
+}
+
+model AgentLog {
+  id        String   @id @default(uuid())
+  userId    String
+  agentType String
+  input     Json
+  output    Json
+  duration  Int
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [userId], references: [id])
+
+  @@map("agent_logs")
+}
