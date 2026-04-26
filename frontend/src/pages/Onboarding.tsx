@@ -119,6 +119,9 @@ const ALL_CONCEPTS = [
   "c20",
 ];
 
+// These foundational concepts are always unlocked regardless of quiz answers
+const ALWAYS_AVAILABLE = new Set(["c1", "c2", "c3"]);
+
 const OPTION_LETTERS = ["A", "B", "C", "D"];
 
 export default function Onboarding() {
@@ -156,15 +159,17 @@ export default function Onboarding() {
     setSubmitting(true);
 
     try {
-      // Concepts tested in the quiz — mark available if correct, locked if wrong
       const testedIds = new Set(QUESTIONS.map((q) => q.conceptId));
+
+      // Tested concepts — always available if correct OR if foundational
       const testedInserts = QUESTIONS.map((q) => {
         const correct = finalAnswers[q.id] === q.correct;
+        const alwaysOpen = ALWAYS_AVAILABLE.has(q.conceptId);
         return {
           id: crypto.randomUUID(),
           userId: user.id,
           conceptId: q.conceptId,
-          masteryState: correct ? "available" : "locked",
+          masteryState: correct || alwaysOpen ? "available" : "locked",
           easeFactor: correct ? 2.5 : 1.5,
           interval: 0,
           repetitions: 0,
@@ -173,14 +178,14 @@ export default function Onboarding() {
         };
       });
 
-      // Untested concepts — all start locked so UNLOCKS map can open them
+      // Untested concepts — foundational ones always available, rest locked
       const untestedInserts = ALL_CONCEPTS.filter(
         (cid) => !testedIds.has(cid),
       ).map((cid) => ({
         id: crypto.randomUUID(),
         userId: user.id,
         conceptId: cid,
-        masteryState: "locked",
+        masteryState: ALWAYS_AVAILABLE.has(cid) ? "available" : "locked",
         easeFactor: 1.5,
         interval: 0,
         repetitions: 0,
