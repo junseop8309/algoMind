@@ -19,6 +19,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
 } from "lucide-react";
 
 interface Problem {
@@ -90,6 +91,8 @@ export default function Problem() {
   const [agentMessages, setAgentMessages] = useState<
     Array<{ role: "user" | "assistant"; content: string }>
   >([]);
+  const [hintCount, setHintCount] = useState(0);
+  const HINT_LIMIT = 3;
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -632,33 +635,57 @@ export default function Problem() {
 
               {/* Action buttons */}
               <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center gap-2">
-                <button
-                  onClick={async () => {
-                    if (!problem) return;
-                    const userMsg = {
-                      role: "user" as const,
-                      content: `I'm stuck on "${problem.title}". I've been working for ${useSessionStore.getState().elapsedSeconds}s. Can you give me a hint?`,
-                    };
-                    const newMessages = [...agentMessages, userMsg];
-                    setAgentMessages(newMessages);
-                    await ask(AgentType.Hint, newMessages, {
-                      problemId: problem.id,
-                      problemTitle: problem.title,
-                      language,
-                      code,
-                      hintLevel: revealedHints.length,
-                      elapsedSeconds: useSessionStore.getState().elapsedSeconds,
-                      attemptCount: 0,
-                    });
-                  }}
-                  disabled={agentState.status === "loading"}
-                  className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Send size={14} />
-                  {agentState.status === "loading"
-                    ? "Thinking..."
-                    : "Ask for a hint"}
-                </button>
+                {/* Daily limit reached */}
+                {agentState.status === "limit_reached" && (
+                  <div className="flex-1 flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 text-amber-700 dark:text-amber-400 text-xs px-3 py-2 rounded-lg">
+                    <AlertCircle size={14} className="shrink-0" />
+                    {agentState.message}
+                  </div>
+                )}
+
+                {/* Hint cap reached */}
+                {agentState.status !== "limit_reached" &&
+                  hintCount >= HINT_LIMIT && (
+                    <div className="flex-1 flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 text-xs px-3 py-2 rounded-lg">
+                      <AlertCircle size={14} className="shrink-0" />
+                      Max {HINT_LIMIT} hints per problem reached. Try solving it
+                      yourself!
+                    </div>
+                  )}
+
+                {/* Ask button */}
+                {agentState.status !== "limit_reached" &&
+                  hintCount < HINT_LIMIT && (
+                    <button
+                      onClick={async () => {
+                        if (!problem) return;
+                        const userMsg = {
+                          role: "user" as const,
+                          content: `I'm stuck on "${problem.title}". I've been working for ${useSessionStore.getState().elapsedSeconds}s. Can you give me a hint?`,
+                        };
+                        const newMessages = [...agentMessages, userMsg];
+                        setAgentMessages(newMessages);
+                        setHintCount((c) => c + 1);
+                        await ask(AgentType.Hint, newMessages, {
+                          problemId: problem.id,
+                          problemTitle: problem.title,
+                          language,
+                          code,
+                          hintLevel: revealedHints.length,
+                          elapsedSeconds:
+                            useSessionStore.getState().elapsedSeconds,
+                          attemptCount: 0,
+                        });
+                      }}
+                      disabled={agentState.status === "loading"}
+                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                    >
+                      <Send size={14} />
+                      {agentState.status === "loading"
+                        ? "Thinking..."
+                        : `Ask for a hint (${hintCount}/${HINT_LIMIT})`}
+                    </button>
+                  )}
                 {agentMessages.length > 0 && (
                   <button
                     onClick={() => {

@@ -1,3 +1,5 @@
+
+useAgent
 import { useState } from 'react'
 import { useAuth } from '../features/auth/AuthProvider'
 import type { AgentType, AgentMessage, SessionContext } from '../types/agent'
@@ -7,10 +9,11 @@ type AgentState =
   | { status: 'loading' }
   | { status: 'success'; message: string }
   | { status: 'error'; message: string }
+  | { status: 'limit_reached'; message: string }
 
 export function useAgent() {
   const [state, setState] = useState<AgentState>({ status: 'idle' })
-  const { session } = useAuth()
+  const { session, user } = useAuth()
 
   async function ask(
     agentType: AgentType,
@@ -33,9 +36,24 @@ export function useAgent() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ agentType, messages, context }),
+          body: JSON.stringify({
+            agentType,
+            messages,
+            context,
+            userId: user?.id, // passed to backend for daily rate limiting
+          }),
         }
       )
+
+      // Daily limit reached
+      if (response.status === 429) {
+        const err = await response.json()
+        setState({
+          status: 'limit_reached',
+          message: err.message ?? "You've reached your daily AI limit. Come back tomorrow!",
+        })
+        return
+      }
 
       if (!response.ok) {
         const err = await response.json()
